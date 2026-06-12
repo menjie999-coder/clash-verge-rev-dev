@@ -1,0 +1,112 @@
+name: Build macOS DMG
+
+on:
+  workflow_dispatch:
+    inputs:
+      build_aarch64:
+        description: '构建 Apple Silicon (M 系列芯片)'
+        required: false
+        type: boolean
+        default: true
+      build_x64:
+        description: '构建 Intel 芯片'
+        required: false
+        type: boolean
+        default: false
+
+permissions: write-all
+env:
+  CARGO_INCREMENTAL: 0
+  RUST_BACKTRACE: short
+  HUSKY: 0
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - target: aarch64-apple-darwin
+            arch: aarch64
+            input: build_aarch64
+          - target: x86_64-apple-darwin
+            arch: x64
+            input: build_x64
+    runs-on: macos-latest
+    steps:
+      - name: Skip job if not selected
+        if: github.event.inputs[matrix.input] != 'true'
+        run: echo "Target ${{ matrix.target }} skipped as requested"
+
+      - name: Checkout Repository
+        if: github.event.inputs[matrix.input] == 'true'
+        uses: actions/checkout@v6
+
+      - name: Install Rust Stable
+        if: github.event.inputs[matrix.input] == 'true'
+        uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: '1.91.0'
+          targets: ${{ matrix.target }}
+
+      - name: Rust Cache
+        if: github.event.inputs[matrix.input] == 'true'
+        uses: Swatinem/rust-cache@v2
+        with:
+          prefix-key: 'v1-rust'
+          key: 'rust-shared-stable-macos-latest-${{ matrix.target }}'
+          workspaces: |
+            . -> target
+          cache-all-crates: true
+
+      - name: Install x86 OpenSSL (Intel only)
+        if: matrix.target == 'x86_64-apple-darwin' && github.event.inputs[matrix.input] == 'true'
+        run: |
+          arch -x86_64 brew install openssl@3
+          echo "OPENSSL_DIR=$(brew --prefix openssl@3)" >> $GITHUB_ENV
+          echo "OPENSSL_INCLUDE_DIR=$(brew --prefix openssl@3)/include" >> $GITHUB_ENV
+          echo "OPENSSL_LIB_DIR=$(brew --prefix openssl@3)/lib" >> $GITHUB_ENV
+          echo "PKG_CONFIG_PATH=$(brew --prefix openssl@3)/lib/pkgconfig" >> $GITHUB_ENV
+
+      - uses: pnpm/action-setup@v6
+        name: Install pnpm
+        if: github.event.inputs[matrix.input] == 'true'
+        with:
+          run_install: false
+
+      - name: Install Node
+        if: github.event.inputs[matrix.input] == 'true'
+        uses: actions/setup-node@v6
+        with:
+          node-version: '24.15.0'
+          cache: 'pnpm'
+
+      - name: Pnpm install and check
+        if: github.event.inputs[matrix.input] == 'true'
+        run: |
+          pnpm i
+          pnpm run prebuild ${{ matrix.target }}
+
+      - name: Disable updater artifacts (no signing key in fork)
+        if: github.event.inputs[matrix.input] == 'true'
+        run: |
+          jq '.bundle.createUpdaterArtifacts = false' src-tauri/tauri.conf.json > /tmp/tauri.conf.json
+          mv /tmp/tauri.conf.json src-tauri/tauri.conf.json
+
+      - name: Tauri build
+        if: github.event.inputs[matrix.input] == 'true'
+        uses: tauri-apps/tauri-action@v0.6.2
+        env:
+          NODE_OPTIONS: '--max_old_space_size=4096'
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tauriScript: pnpm
+          args: --target ${{ matrix.target }} -b dmg
+
+      - name: Upload Artifacts
+        if: github.event.inputs[matrix.input] == 'true'
+        uses: actions/upload-artifact@v7
+        with:
+          name: Clash.Verge_macOS_${{ matrix.arch }}
+          path: target/${{ matrix.target }}/release/bundle/dmg/*.dmg
+          if-no-files-found: error

@@ -1,0 +1,136 @@
+{
+  "page": {
+    "modes": {
+      "rule": "Rule",
+      "global": "Global",
+      "direct": "Direct"
+    },
+    "actions": {
+      "toggleChain": "Chain Proxy",
+      "connect": "Connect",
+      "disconnect": "Disconnect",
+      "connecting": "Connecting...",
+      "clearChainConfig": "Delete Chain Config",
+      "recheck": "Recheck",
+      "recover": "Recover"
+    },
+    "provider": {
+      "title": "Proxy Provider",
+      "actions": {
+        "updateAll": "Update All",
+        "update": "Update"
+      }
+    },
+    "rules": {
+      "title": "Proxy Rules",
+      "select": "Select Rules"
+    },
+    "labels": {
+      "proxyCount": "Proxy Count",
+      "delayCheckReset": "Delay check to cancel fixed"
+    },
+    "tooltips": {
+      "locate": "locate",
+      "delayCheck": "Delay check",
+      "sortDefault": "Sort by default",
+      "sortDelay": "Sort by delay",
+      "sortName": "Sort by name",
+      "delayCheckUrl": "Delay check URL",
+      "showBasic": "Proxy basic",
+      "showDetail": "Proxy detail",
+      "filter": "Filter"
+    },
+    "placeholders": {
+      "delayCheckUrl": "Delay check URL"
+    },
+    "chain": {
+      "header": "Chain Proxy Config",
+      "empty": "No proxy chain configured",
+      "instruction": "Click nodes in order to add to proxy chain",
+      "minimumNodes": "Chain proxy requires at least 2 nodes",
+      "minimumNodesHint": "Chain proxy requires at least 2 nodes. Please add one more node.",
+      "connectFailed": "Failed to connect to proxy chain",
+      "disconnectFailed": "Failed to disconnect from proxy chain",
+      "duplicateNode": "Proxy node already exists in chain",
+      "entryNode": "Entry",
+      "exitNode": "Exit",
+      "inChain": "In Chain",
+      "health": {
+        "healthy": "Connected",
+        "drifted": "Exit node changed",
+        "unhealthy": "Chain unhealthy",
+        "idle": "Not connected",
+        "driftedHint": "Exit node has been switched to {{node}}; the proxy chain may no longer be active.",
+        "unhealthyHint": "Node {{node}} is unreachable; chain is unhealthy."
+      },
+      "presets": {
+        "empty": "No presets — save the current chain to create one",
+        "placeholder": "Select a chain preset",
+        "actions": {
+          "oneClick": "One-click",
+          "applyOnly": "Apply to chain only",
+          "applyAndConnect": "Apply preset and connect to exit node",
+          "saveCurrent": "Save current chain as preset",
+          "manage": "Manage presets"
+        },
+        "matchType": {
+          "exact": "Exact",
+          "keyword": "Keyword {{keyword}}"
+        },
+        "feedback": {
+          "saved": "Saved preset: {{name}}",
+          "connected": "Connected via preset: {{name}}",
+          "missingNodes": "{{count}} node(s) could not be matched in the current subscription. Please review them.",
+          "noTargetGroup": "Pick a proxy group first",
+          "emptyName": "Please enter a preset name"
+        },
+        "dialogs": {
+          "saveTitle": "Save as preset",
+          "nameLabel": "Preset name",
+          "savePreview": "Will save {{count}} node(s):",
+          "keywordPreview": "Fallback keyword: {{keyword}}",
+          "noKeyword": "No region detected — exact-name match only",
+          "manageTitle": "Manage presets",
+          "manageMeta": "{{count}} node(s) · group: {{group}}",
+          "fallbackTitle": "Confirm preset application",
+          "fallbackHint": "Some nodes did not match exactly. They were resolved via region keyword to the lowest-latency available node:"
+        }
+      }
+    },
+    "messages": {
+      "directMode": "Direct Mode"
+    },
+    "title": {
+      "default": "Proxy Groups",
+      "chainMode": "Proxy Chain Mode"
+    }
+  },
+  "feedback": {
+    "notifications": {
+      "provider": {
+        "updateSuccess": "{{name}} updated successfully",
+        "updateFailed": "Failed to update {{name}}: {{message}}",
+        "genericError": "Update failed: {{message}}",
+        "none": "No providers available to update",
+        "allUpdated": "All providers updated successfully"
+      }
+    }
+  },
+  "components": {
+    "enums": {
+      "strategies": {
+        "select": "Select proxy manually",
+        "url-test": "Select proxy based on URL test delay",
+        "fallback": "Switch to another proxy on error",
+        "load-balance": "Distribute proxy based on load balancing",
+        "relay": "Pass through the defined proxy chain"
+      },
+      "policies": {
+        "DIRECT": "Data goes directly outbound (DIRECT)",
+        "REJECT": "Intercepts requests (REJECT)",
+        "REJECT-DROP": "Discards requests (REJECT-DROP)",
+        "PASS": "Skips this rule when matched (PASS)"
+      }
+    }
+  }
+}
