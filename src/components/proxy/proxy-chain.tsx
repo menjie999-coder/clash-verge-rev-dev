@@ -33,6 +33,8 @@ import {
   Chip,
   IconButton,
   Paper,
+  ToggleButton,
+  ToggleButtonGroup,
   Tooltip,
   Typography,
   useTheme,
@@ -58,6 +60,7 @@ import {
 import { debugLog } from '@/utils/debug'
 
 import { ProxyChainPresets } from './proxy-chain-presets'
+import { SmartChainBuilder } from './smart-chain-builder'
 
 const CHAIN_GROUP_KEY = '__PROXY_CHAIN__'
 const HEALTH_CHECK_INTERVAL = 30 * 1000
@@ -278,6 +281,32 @@ export const ProxyChain = ({
   const latencyTimeout = verge?.default_latency_timeout || 10000
   const [isConnecting, setIsConnecting] = useState(false)
   const [isRechecking, setIsRechecking] = useState(false)
+  const [uiMode, setUiMode] = useState<'smart' | 'advanced'>(() => {
+    try {
+      const stored = localStorage.getItem('proxy-chain-ui-mode')
+      if (stored === 'smart' || stored === 'advanced') {
+        return stored
+      }
+    } catch {
+      // ignore
+    }
+    return 'smart'
+  })
+
+  const handleUiModeChange = useCallback(
+    (_event: React.MouseEvent<HTMLElement>, next: 'smart' | 'advanced' | null) => {
+      if (next !== 'smart' && next !== 'advanced') {
+        return
+      }
+      setUiMode(next)
+      try {
+        localStorage.setItem('proxy-chain-ui-mode', next)
+      } catch {
+        // ignore
+      }
+    },
+    [],
+  )
   const [unhealthyNode, setUnhealthyNode] = useState<string | null>(null)
   const failureCountRef = useRef(0)
   const hasBeenConnectedRef = useRef(false)
@@ -819,12 +848,31 @@ export const ProxyChain = ({
         </Box>
       </Box>
 
-      <ProxyChainPresets
-        currentChain={proxyChain}
-        mode={mode || 'rule'}
-        selectedGroup={selectedGroup}
-        onApplyChain={onUpdateChain}
-      />
+      <ToggleButtonGroup
+        value={uiMode}
+        exclusive
+        size="small"
+        onChange={handleUiModeChange}
+        sx={{ mb: 2 }}
+      >
+        <ToggleButton value="smart">
+          {t('proxies.page.chain.smart.tab')}
+        </ToggleButton>
+        <ToggleButton value="advanced">
+          {t('proxies.page.chain.smart.advancedTab')}
+        </ToggleButton>
+      </ToggleButtonGroup>
+
+      {uiMode === 'smart' ? (
+        <SmartChainBuilder mode={mode || 'rule'} selectedGroup={selectedGroup} />
+      ) : (
+        <>
+          <ProxyChainPresets
+            currentChain={proxyChain}
+            mode={mode || 'rule'}
+            selectedGroup={selectedGroup}
+            onApplyChain={onUpdateChain}
+          />
 
       {(chainHealth === 'drifted' || chainHealth === 'unhealthy') && (
         <Alert
@@ -929,7 +977,9 @@ export const ProxyChain = ({
             </SortableContext>
           </DndContext>
         )}
-      </Box>
+          </Box>
+        </>
+      )}
     </Paper>
   )
 }
