@@ -121,3 +121,35 @@ pub async fn update_proxy_chain_config_in_runtime(proxy_chain_config: Option<ser
         }
     }
 }
+
+/// 更新运行时智能链式代理配置
+#[tauri::command]
+pub async fn update_smart_chain_config_in_runtime(
+    payload: Option<serde_yaml_ng::Value>,
+) -> CmdResult<()> {
+    {
+        let runtime = Config::runtime().await;
+        runtime.edit_draft(|d| d.update_smart_chain_config(payload));
+    }
+    match CoreManager::global().apply_generate_config().await {
+        Ok(outcome) if outcome.is_valid() => Ok(()),
+        Ok(outcome) => {
+            logging!(
+                warn,
+                Type::Core,
+                "Failed to apply smart chain config: {}",
+                outcome
+            );
+            Err(format!("smart chain config invalid: {}", outcome).into())
+        }
+        Err(err) => {
+            logging!(
+                error,
+                Type::Core,
+                "Failed to apply smart chain config: {}",
+                err
+            );
+            Err(format!("failed to apply smart chain config: {}", err).into())
+        }
+    }
+}
