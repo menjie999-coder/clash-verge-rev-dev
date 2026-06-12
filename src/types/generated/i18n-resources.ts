@@ -483,6 +483,24 @@ export interface TranslationResources {
             }
             placeholder: string
           }
+          smart: {
+            addRegion: string
+            advancedTab: string
+            connect: string
+            currentNode: string
+            disconnect: string
+            duplicateRegion: string
+            noHealthyNode: string
+            regionBest: string
+            regionHealthy: string
+            status: {
+              degraded: string
+              down: string
+              healthy: string
+            }
+            tab: string
+            templates: string
+          }
         }
         labels: {
           delayCheckReset: string

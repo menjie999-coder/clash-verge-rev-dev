@@ -95,6 +95,24 @@
           "fallbackTitle": "确认应用预设",
           "fallbackHint": "部分节点未精确命中，已按地区关键词回退到延迟最低的可用节点："
         }
+      },
+      "smart": {
+        "tab": "智能链",
+        "advancedTab": "手动",
+        "addRegion": "添加地区",
+        "regionHealthy": "{{count}} 个健康节点",
+        "regionBest": "最优 {{delay}}ms",
+        "noHealthyNode": "无健康节点",
+        "currentNode": "当前：{{node}}",
+        "templates": "常用模板",
+        "connect": "连接",
+        "disconnect": "断开",
+        "duplicateRegion": "该地区已在链中",
+        "status": {
+          "healthy": "全链连通",
+          "degraded": "部分地区可选节点减少",
+          "down": "有地区无可用节点"
+        }
       }
     },
     "messages": {

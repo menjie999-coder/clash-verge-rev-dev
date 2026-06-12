@@ -95,6 +95,24 @@
           "fallbackTitle": "Confirm preset application",
           "fallbackHint": "Some nodes did not match exactly. They were resolved via region keyword to the lowest-latency available node:"
         }
+      },
+      "smart": {
+        "tab": "Smart Chain",
+        "advancedTab": "Manual",
+        "addRegion": "Add region",
+        "regionHealthy": "{{count}} healthy",
+        "regionBest": "best {{delay}}ms",
+        "noHealthyNode": "No healthy node",
+        "currentNode": "Now: {{node}}",
+        "templates": "Templates",
+        "connect": "Connect",
+        "disconnect": "Disconnect",
+        "duplicateRegion": "Region already in chain",
+        "status": {
+          "healthy": "All hops connected",
+          "degraded": "Some regions have fewer nodes",
+          "down": "A region has no usable node"
+        }
       }
     },
     "messages": {
