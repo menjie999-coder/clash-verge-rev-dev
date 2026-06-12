@@ -992,10 +992,18 @@ interface IProxyChainPresetNode {
   keyword?: string
 }
 
+type IChainHopKind = 'region' | 'filter' | 'pinned'
+
+interface IChainHop {
+  kind: IChainHopKind
+  value: string
+}
+
 interface IProxyChainPreset {
   id: string
   name: string
   nodes: IProxyChainPresetNode[]
+  hops?: IChainHop[]
   target_group?: string
   created_at: number
   last_used_at?: number
