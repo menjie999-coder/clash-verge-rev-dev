@@ -1,4 +1,4 @@
-const REGION_PATTERNS: { key: string; regex: RegExp }[] = [
+export const REGION_PATTERNS: { key: string; regex: RegExp }[] = [
   { key: 'HK', regex: /🇭🇰|香港|HongKong|Hong\s*Kong|\bHK\b/i },
   { key: 'TW', regex: /🇹🇼|台湾|台灣|Taiwan|\bTW\b/i },
   { key: 'JP', regex: /🇯🇵|日本|东京|大阪|Japan|Tokyo|Osaka|\bJP\b/i },
@@ -62,14 +62,14 @@ export function extractKeyword(name: string): string | undefined {
   return undefined
 }
 
-const latestDelay = (proxy: MatchableProxy | undefined): number | undefined => {
+export const latestDelay = (proxy: MatchableProxy | undefined): number | undefined => {
   if (!proxy?.history?.length) return undefined
   const d = proxy.history[proxy.history.length - 1]?.delay
   return typeof d === 'number' ? d : undefined
 }
 
 /** 节点是否为可被链式代理串联的"真实节点"(排除策略组和内置项)。 */
-const isUsableNode = (proxy: MatchableProxy): boolean => {
+export const isUsableNode = (proxy: MatchableProxy): boolean => {
   if (!proxy.type) return true
   return !GROUP_TYPES.has(proxy.type)
 }
