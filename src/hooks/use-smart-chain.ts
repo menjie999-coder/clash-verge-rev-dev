@@ -30,6 +30,29 @@ export function useSmartChain(
     [hops, proxies?.records, timeout],
   )
 
+  const hopStatus = useMemo(
+    () =>
+      resolvedGroups.map((g) => {
+        const grp = proxies?.groups?.find(
+          (pg: { name: string; now?: string }) => pg.name === g.groupName,
+        )
+        return {
+          groupName: g.groupName,
+          value: g.value,
+          now: grp?.now ?? null,
+          healthyCount: g.healthyCount,
+        }
+      }),
+    [resolvedGroups, proxies?.groups],
+  )
+
+  const overallStatus = useMemo<'healthy' | 'degraded' | 'down'>(() => {
+    if (resolvedGroups.length === 0) return 'healthy'
+    if (resolvedGroups.some((g) => g.healthyCount === 0)) return 'down'
+    if (resolvedGroups.some((g) => g.healthyCount === 1)) return 'degraded'
+    return 'healthy'
+  }, [resolvedGroups])
+
   const targetGroup = mode === 'global' ? 'GLOBAL' : selectedGroup || null
 
   const connect = useCallback(async () => {
@@ -69,6 +92,8 @@ export function useSmartChain(
     hops,
     setHops,
     resolvedGroups,
+    hopStatus,
+    overallStatus,
     connect,
     disconnect,
     busy,

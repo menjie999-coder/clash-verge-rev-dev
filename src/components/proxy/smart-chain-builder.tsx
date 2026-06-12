@@ -59,12 +59,13 @@ interface HopRowProps {
   group: ResolvedHopGroup
   index: number
   delay?: number
+  now?: string | null
   onRemove: (index: number) => void
 }
 
 const hopId = (group: ResolvedHopGroup) => `hop-${group.hopIndex}-${group.value}`
 
-const HopRow = ({ group, index, delay, onRemove }: HopRowProps) => {
+const HopRow = ({ group, index, delay, now, onRemove }: HopRowProps) => {
   const theme = useTheme()
   const { t } = useTranslation()
   const {
@@ -157,6 +158,20 @@ const HopRow = ({ group, index, delay, onRemove }: HopRowProps) => {
             )}
           </Typography>
         )}
+        {now && (
+          <Typography
+            variant="caption"
+            sx={{
+              display: 'block',
+              color: theme.palette.text.secondary,
+              overflow: 'hidden',
+              textOverflow: 'ellipsis',
+              whiteSpace: 'nowrap',
+            }}
+          >
+            {t('proxies.page.chain.smart.currentNode', { node: now })}
+          </Typography>
+        )}
       </Box>
 
       <IconButton
@@ -181,8 +196,17 @@ export const SmartChainBuilder = ({
 }: SmartChainBuilderProps) => {
   const theme = useTheme()
   const { t } = useTranslation()
-  const { hops, setHops, resolvedGroups, connect, disconnect, busy, targetGroup } =
-    useSmartChain(mode, selectedGroup)
+  const {
+    hops,
+    setHops,
+    resolvedGroups,
+    hopStatus,
+    overallStatus,
+    connect,
+    disconnect,
+    busy,
+    targetGroup,
+  } = useSmartChain(mode, selectedGroup)
   const { proxies } = useProxiesData()
   const { verge } = useVerge()
   const timeout = verge?.default_latency_timeout || 10000
@@ -394,6 +418,7 @@ export const SmartChainBuilder = ({
                   group={group}
                   index={index}
                   delay={delayFor(group.bestNode)}
+                  now={hopStatus[index]?.now}
                   onRemove={handleRemove}
                 />
                 {index < resolvedGroups.length - 1 && (
@@ -422,10 +447,25 @@ export const SmartChainBuilder = ({
       <Box
         sx={{
           display: 'flex',
+          alignItems: 'center',
           justifyContent: 'flex-end',
+          gap: 1,
           mt: 2,
         }}
       >
+        {resolvedGroups.length > 0 && (
+          <Chip
+            label={t(`proxies.page.chain.smart.status.${overallStatus}`)}
+            size="small"
+            color={
+              overallStatus === 'healthy'
+                ? 'success'
+                : overallStatus === 'degraded'
+                  ? 'warning'
+                  : 'error'
+            }
+          />
+        )}
         {connected ? (
           <Button
             variant="contained"
