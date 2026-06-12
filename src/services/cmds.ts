@@ -3,6 +3,7 @@ import dayjs from 'dayjs'
 import { getProxies, getProxyProviders } from 'tauri-plugin-mihomo-api'
 
 import { showNotice } from '@/services/notice-service'
+import type { SmartChainPayload } from '@/utils/chain-config-builder'
 import { debugLog } from '@/utils/debug'
 
 export async function copyClashEnv() {
@@ -112,6 +113,12 @@ export async function updateProxyChainConfigInRuntime(proxyChainConfig: any) {
   return invoke<void>('update_proxy_chain_config_in_runtime', {
     proxyChainConfig,
   })
+}
+
+export async function updateSmartChainConfigInRuntime(
+  payload: SmartChainPayload | null,
+) {
+  return invoke<void>('update_smart_chain_config_in_runtime', { payload })
 }
 
 export async function patchClashConfig(payload: Partial<IConfigData>) {

@@ -19,6 +19,7 @@ export interface ProxyChainState {
   items: ProxyChainItem[]
   group: string | null
   exitNode: string | null
+  hops?: IChainHop[]
 }
 
 const EMPTY: ProxyChainState = {
@@ -64,6 +65,7 @@ export function readChainState(): ProxyChainState {
         items: Array.isArray(parsed.items) ? parsed.items : [],
         group: typeof parsed.group === 'string' ? parsed.group : null,
         exitNode: typeof parsed.exitNode === 'string' ? parsed.exitNode : null,
+        hops: Array.isArray(parsed.hops) ? parsed.hops : undefined,
       }
     }
 
