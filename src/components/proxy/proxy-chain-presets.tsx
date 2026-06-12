@@ -36,8 +36,8 @@ import {
 
 import { useVerge } from '@/hooks/use-verge'
 import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
-import { showNotice } from '@/services/notice-service'
 import { updateProxyChainConfigInRuntime } from '@/services/cmds'
+import { showNotice } from '@/services/notice-service'
 import { patchChainState } from '@/services/proxy-chain-storage'
 import {
   extractKeyword,
@@ -208,6 +208,12 @@ export const ProxyChainPresets = ({
         name: n.name,
         keyword: extractKeyword(n.name),
       })),
+      hops: currentChain.map((n) => {
+        const kw = extractKeyword(n.name)
+        return kw
+          ? { kind: 'region' as const, value: kw }
+          : { kind: 'pinned' as const, value: n.name }
+      }),
       target_group: targetGroup,
       created_at: Date.now(),
     }
