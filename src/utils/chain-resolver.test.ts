@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { CHAIN_HOP_GROUP_PREFIX, resolveChainGroups } from './chain-resolver'
 
 const rec = (name: string, delay: number, type = 'ss') => ({

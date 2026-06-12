@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+
 import { buildSmartChainPayload, DEFAULT_HEALTH_URL } from './chain-config-builder'
 import type { ResolvedHopGroup } from './chain-resolver'
 
