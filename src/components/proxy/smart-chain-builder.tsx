@@ -39,6 +39,7 @@ import { useSmartChain } from '@/hooks/use-smart-chain'
 import { useVerge } from '@/hooks/use-verge'
 import { useProxiesData } from '@/providers/app-data-context'
 import { showNotice } from '@/services/notice-service'
+import { readChainState } from '@/services/proxy-chain-storage'
 import { latestDelay, REGION_PATTERNS } from '@/utils/chain-preset-match'
 import {
   resolveChainGroups,
@@ -212,7 +213,10 @@ export const SmartChainBuilder = ({
   const timeout = verge?.default_latency_timeout || 10000
 
   const [pendingRegion, setPendingRegion] = useState('')
-  const [connected, setConnected] = useState(false)
+  const [connected, setConnected] = useState<boolean>(() => {
+    const s = readChainState()
+    return !!s.group && (s.hops?.length ?? 0) >= 2
+  })
 
   const usedRegions = useMemo(
     () =>
@@ -258,12 +262,12 @@ export const SmartChainBuilder = ({
   const addRegion = useCallback(() => {
     if (!pendingRegion) return
     if (usedRegions.includes(pendingRegion)) {
-      showNotice.info('proxies.page.chain.smart.duplicateRegion')
+      showNotice.info(t('proxies.page.chain.smart.duplicateRegion'))
       return
     }
     setHops([...hops, { kind: 'region', value: pendingRegion }])
     setPendingRegion('')
-  }, [pendingRegion, usedRegions, hops, setHops])
+  }, [pendingRegion, usedRegions, hops, setHops, t])
 
   const applyTemplate = useCallback(
     (template: string[]) => {
@@ -294,8 +298,8 @@ export const SmartChainBuilder = ({
   )
 
   const handleConnect = useCallback(async () => {
-    await connect()
-    setConnected(true)
+    const ok = await connect()
+    if (ok) setConnected(true)
   }, [connect])
 
   const handleDisconnect = useCallback(async () => {

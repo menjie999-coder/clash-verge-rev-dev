@@ -7,7 +7,8 @@ import {
 import { useVerge } from '@/hooks/use-verge'
 import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
 import { updateSmartChainConfigInRuntime } from '@/services/cmds'
-import { patchChainState } from '@/services/proxy-chain-storage'
+import { showNotice } from '@/services/notice-service'
+import { patchChainState, readChainState } from '@/services/proxy-chain-storage'
 import {
   buildSmartChainPayload,
   DEFAULT_HEALTH_URL,
@@ -22,7 +23,9 @@ export function useSmartChain(
   const { proxies } = useProxiesData()
   const { refreshProxy } = useAppRefreshers()
   const timeout = verge?.default_latency_timeout || 10000
-  const [hops, setHops] = useState<IChainHop[]>([])
+  const [hops, setHops] = useState<IChainHop[]>(
+    () => readChainState().hops ?? [],
+  )
   const [busy, setBusy] = useState(false)
 
   const resolvedGroups = useMemo(
@@ -55,8 +58,8 @@ export function useSmartChain(
 
   const targetGroup = mode === 'global' ? 'GLOBAL' : selectedGroup || null
 
-  const connect = useCallback(async () => {
-    if (hops.length < 2 || !targetGroup) return
+  const connect = useCallback(async (): Promise<boolean> => {
+    if (hops.length < 2 || !targetGroup) return false
     setBusy(true)
     try {
       const payload = buildSmartChainPayload(resolvedGroups, targetGroup, {
@@ -70,6 +73,10 @@ export function useSmartChain(
       patchChainState({ group: targetGroup, exitNode: exitGroup, hops })
       await closeAllConnections()
       await refreshProxy()
+      return true
+    } catch (err) {
+      showNotice.error('proxies.page.chain.connectFailed', err)
+      return false
     } finally {
       setBusy(false)
     }
@@ -83,6 +90,8 @@ export function useSmartChain(
       await closeAllConnections()
       await refreshProxy()
       setHops([])
+    } catch (err) {
+      showNotice.error('proxies.page.chain.disconnectFailed', err)
     } finally {
       setBusy(false)
     }
