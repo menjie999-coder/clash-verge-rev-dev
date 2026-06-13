@@ -212,7 +212,7 @@ export const ProfileItem = (props: Props) => {
         if (refreshTimeoutRef.current !== undefined) {
           clearTimeout(refreshTimeoutRef.current)
         }
-        refreshTimeoutRef.current = window.setTimeout(() => {
+        refreshTimeoutRef.current = setTimeout(() => {
           fetchNextUpdateTime(true)
         }, 1000)
       }
