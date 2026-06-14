@@ -23,6 +23,11 @@ fn notify(title: Cow<'_, str>, body: Cow<'_, str>) {
     app_handle.notification().builder().title(title).body(body).show().ok();
 }
 
+/// 发送一条桌面通知（标题/正文由调用方提供，通常已在前端完成本地化）。
+pub fn notify_text(title: &str, body: &str) {
+    notify(Cow::Owned(title.to_string()), Cow::Owned(body.to_string()));
+}
+
 pub async fn notify_event<'a>(event: NotificationEvent<'a>) {
     match event {
         NotificationEvent::DashboardToggled => {

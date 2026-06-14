@@ -40,6 +40,30 @@ const isHealthy = (proxy: MatchableProxy, timeout: number): boolean => {
   return d !== undefined && d > 0 && d < timeout
 }
 
+/**
+ * 收集每一跳匹配到的所有节点名（不做健康过滤、保留首占去重）。
+ *
+ * 用于"手动刷新健康节点"：需要重测全部匹配节点（含当前已掉线的），
+ * 这样恢复的节点才能在重测后重新进入候选；只测当前健康候选则永远复活不了死节点。
+ */
+export function collectHopMatches(
+  hops: { kind: 'region' | 'filter' | 'pinned'; value: string }[],
+  records: Record<string, MatchableProxy> | undefined,
+): string[] {
+  const all = Object.values(records ?? {}).filter(isUsableNode)
+  const claimed = new Set<string>()
+  const names: string[] = []
+  hops.forEach((hop) => {
+    all.forEach((p) => {
+      if (!claimed.has(p.name) && matchHop(p, hop)) {
+        claimed.add(p.name)
+        names.push(p.name)
+      }
+    })
+  })
+  return names
+}
+
 export function resolveChainGroups(
   hops: { kind: 'region' | 'filter' | 'pinned'; value: string }[],
   records: Record<string, MatchableProxy> | undefined,

@@ -66,6 +66,10 @@
       "presets": {
         "empty": "暂无预设，可保存当前代理链",
         "placeholder": "选择一个链式代理预设",
+        "group": {
+          "smart": "智能链",
+          "manual": "手动链"
+        },
         "actions": {
           "oneClick": "一键连接",
           "applyOnly": "仅应用到代理链",
@@ -86,6 +90,8 @@
         },
         "dialogs": {
           "saveTitle": "保存为预设",
+          "saveTitleSmart": "保存为智能链预设",
+          "saveTitleManual": "保存为手动链预设",
           "nameLabel": "预设名称",
           "savePreview": "将保存 {{count}} 个节点：",
           "keywordPreview": "回退关键词：{{keyword}}",
@@ -108,6 +114,44 @@
         "connect": "连接",
         "disconnect": "断开",
         "duplicateRegion": "该地区已在链中",
+        "duplicateNode": "该节点已在链中",
+        "pinnedExit": "固定出口",
+        "pinExit": "固定为出口",
+        "pinExitNode": "选择一个节点作为固定出口",
+        "pinExitNodeHint": "例如你自己导入的 SOCKS5",
+        "allDownHint": "整条链路端到端探测均不可达，请检查前置节点或出口节点。",
+        "allDownNotice": "智能链路全部不可达——没有可用线路。",
+        "anomalyTitle": "链式代理异常",
+        "switchConfirmTitle": "切换链式代理模式？",
+        "switchConfirmFromManual": "当前有手动链式代理正在使用，切换到智能链会清除它。是否继续？",
+        "switchConfirmFromSmart": "当前有智能链式代理正在使用，切换到手动链会清除它。是否继续？",
+        "switchConfirmOk": "切换",
+        "refreshHealth": "刷新健康节点",
+        "presetApply": "仅应用该预设到当前链（填充，不连接）",
+        "presetApplyShort": "应用",
+        "presetApplyConnect": "应用并立即连接（一键）",
+        "presetApplyConnectShort": "一键连接",
+        "presetRegionHop": "地区择优",
+        "presetFilterHop": "关键词匹配",
+        "live": {
+          "online": "在线",
+          "offline": "离线",
+          "checking": "检测中",
+          "idle": "未连接"
+        },
+        "wizard": {
+          "title": "快速配置（前置地区 → 出口节点 → 一键连接）",
+          "frontRegion": "选前置地区",
+          "exitNode": "选出口节点（如你的 SOCKS5）",
+          "connect": "一键连接",
+          "advancedHint": "或在下方逐跳自定义（高级）"
+        },
+        "hint": {
+          "needHops": "至少需要 2 跳：先加前置地区，再固定一个出口节点",
+          "needGroup": "请先在上方选择代理组",
+          "deadHop": "有地区当前无可用节点，点刷新或换地区",
+          "ready": "配置就绪，点连接即可"
+        },
         "status": {
           "healthy": "全链连通",
           "degraded": "部分地区可选节点减少",

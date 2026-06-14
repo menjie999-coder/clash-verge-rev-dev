@@ -170,6 +170,8 @@ mod app_init {
             cmd::get_runtime_proxy_chain_config,
             cmd::update_proxy_chain_config_in_runtime,
             cmd::update_smart_chain_config_in_runtime,
+            cmd::send_desktop_notification,
+            cmd::flash_window_attention,
             cmd::invoke_uwp_tool,
             cmd::copy_clash_env,
             cmd::sync_tray_proxy_selection,

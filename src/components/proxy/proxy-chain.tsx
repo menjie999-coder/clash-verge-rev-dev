@@ -1,7 +1,7 @@
 import {
   closestCenter,
   DndContext,
-  DragEndEvent,
+  type DragEndEvent,
   KeyboardSensor,
   PointerSensor,
   useSensor,
@@ -31,6 +31,10 @@ import {
   Box,
   Button,
   Chip,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   IconButton,
   Paper,
   ToggleButton,
@@ -47,23 +51,43 @@ import {
   selectNodeForGroup,
 } from 'tauri-plugin-mihomo-api'
 
+import { useSmartChain } from '@/hooks/use-smart-chain'
 import { useVerge } from '@/hooks/use-verge'
 import { useAppRefreshers, useProxiesData } from '@/providers/app-data-context'
-import { updateProxyChainConfigInRuntime } from '@/services/cmds'
+import { notifyChainAnomaly } from '@/services/chain-notify'
+import {
+  updateProxyChainConfigInRuntime,
+  updateSmartChainConfigInRuntime,
+} from '@/services/cmds'
 import delayManager from '@/services/delay'
 import { showNotice } from '@/services/notice-service'
 import {
+  classifyActiveChain,
   clearChainConnection,
   patchChainState,
   readChainState,
 } from '@/services/proxy-chain-storage'
 import { debugLog } from '@/utils/debug'
 
-import { ProxyChainPresets } from './proxy-chain-presets'
+import { ChainPresetBar } from './chain-preset-bar'
 import { SmartChainBuilder } from './smart-chain-builder'
 
 const CHAIN_GROUP_KEY = '__PROXY_CHAIN__'
-const HEALTH_CHECK_INTERVAL = 30 * 1000
+
+// 由节点名列表构造手动链条目（应用手动预设时使用）。
+const buildManualChainNodes = (
+  names: string[],
+  records: Record<string, { type?: string }> | undefined,
+): ProxyChainItem[] => {
+  const ts = Date.now()
+  return names.map((name, i) => ({
+    id: `${name}_${ts}_${i}`,
+    name,
+    type: records?.[name]?.type,
+  }))
+}
+// 贴近实时的连通检测间隔（手动链逐节点直连探测，比智能链端到端探测更重，取折中值）。
+const HEALTH_CHECK_INTERVAL = 10 * 1000
 const FAILURE_THRESHOLD = 2
 
 type ChainHealth = 'idle' | 'healthy' | 'drifted' | 'unhealthy'
@@ -279,8 +303,12 @@ export const ProxyChain = ({
   const { refreshProxy } = useAppRefreshers()
   const { verge } = useVerge()
   const latencyTimeout = verge?.default_latency_timeout || 10000
+  // 智能链状态提升到此处：让顶部统一预设栏可读写 hops，且智能链监控可跨标签页持续。
+  const smart = useSmartChain(mode || 'rule', selectedGroup)
   const [isConnecting, setIsConnecting] = useState(false)
   const [isRechecking, setIsRechecking] = useState(false)
+  // 互斥确认弹窗：检测到智能链正在使用时，先提醒用户再切换到手动链。
+  const [confirmSwitchOpen, setConfirmSwitchOpen] = useState(false)
   const [uiMode, setUiMode] = useState<'smart' | 'advanced'>(() => {
     try {
       const stored = localStorage.getItem('proxy-chain-ui-mode')
@@ -294,7 +322,10 @@ export const ProxyChain = ({
   })
 
   const handleUiModeChange = useCallback(
-    (_event: React.MouseEvent<HTMLElement>, next: 'smart' | 'advanced' | null) => {
+    (
+      _event: React.MouseEvent<HTMLElement>,
+      next: 'smart' | 'advanced' | null,
+    ) => {
       if (next !== 'smart' && next !== 'advanced') {
         return
       }
@@ -311,6 +342,10 @@ export const ProxyChain = ({
   const failureCountRef = useRef(0)
   const hasBeenConnectedRef = useRef(false)
   const runHealthCheckRef = useRef<() => Promise<void>>(async () => {})
+  // 记录上次已就异常状态发过桌面通知的健康态，避免同一次异常反复弹通知。
+  const notifiedChainHealthRef = useRef<ChainHealth>('idle')
+  // 在途守卫：缩短检测间隔后，避免上一轮探测未完成又发起新一轮造成堆叠。
+  const healthCheckInFlightRef = useRef(false)
   const markUnsavedChanges = useCallback(() => {
     onMarkUnsavedChanges?.()
   }, [onMarkUnsavedChanges])
@@ -383,6 +418,61 @@ export const ProxyChain = ({
     [proxyChain, onUpdateChain, markUnsavedChanges],
   )
 
+  // overrideNames：传入节点名直接连（手动预设一键连接用），免去先更新 state 再连的异步等待。
+  const connectManual = useCallback(
+    async (overrideNames?: string[]) => {
+      const chainProxies = overrideNames ?? proxyChain.map((node) => node.name)
+      if (chainProxies.length < 2) {
+        showNotice.info(
+          t('proxies.page.chain.minimumNodes') || '链式代理至少需要2个节点',
+        )
+        return
+      }
+
+      setIsConnecting(true)
+      try {
+        // 第一步：保存链式代理配置
+        debugLog('Saving chain config:', chainProxies)
+        await updateProxyChainConfigInRuntime(chainProxies)
+        debugLog('Chain configuration saved successfully')
+
+        // 第二步：连接到代理链的最后一个节点
+        const lastName = chainProxies[chainProxies.length - 1]
+        debugLog(`Connecting to proxy chain, last node: ${lastName}`)
+
+        // 根据模式确定使用的代理组名称
+        if (mode !== 'global' && !selectedGroup) {
+          throw new Error('规则模式下必须选择代理组')
+        }
+
+        const targetGroup = mode === 'global' ? 'GLOBAL' : selectedGroup
+
+        await selectNodeForGroup(targetGroup || 'GLOBAL', lastName)
+        patchChainState({
+          group: targetGroup || 'GLOBAL',
+          exitNode: lastName,
+        })
+
+        // 刷新代理信息以更新连接状态（手动链不强制断开所有连接，本就平切）
+        await refreshProxy()
+        // 连接后立即做一次端到端探测，不等心跳
+        failureCountRef.current = 0
+        setUnhealthyNode(null)
+        runHealthCheckRef.current().catch(() => {})
+        debugLog('Successfully connected to proxy chain')
+      } catch (error) {
+        console.error('Failed to connect to proxy chain:', error)
+        showNotice.error(
+          t('proxies.page.chain.connectFailed') || '连接链式代理失败',
+          error,
+        )
+      } finally {
+        setIsConnecting(false)
+      }
+    },
+    [proxyChain, t, refreshProxy, mode, selectedGroup],
+  )
+
   const handleConnect = useCallback(async () => {
     if (isConnected) {
       setIsConnecting(true)
@@ -390,9 +480,7 @@ export const ProxyChain = ({
         await updateProxyChainConfigInRuntime(null)
 
         const targetGroup =
-          mode === 'global'
-            ? 'GLOBAL'
-            : selectedGroup || readChainState().group
+          mode === 'global' ? 'GLOBAL' : selectedGroup || readChainState().group
 
         if (targetGroup) {
           try {
@@ -426,54 +514,13 @@ export const ProxyChain = ({
       return
     }
 
-    if (proxyChain.length < 2) {
-      showNotice.info(
-        t('proxies.page.chain.minimumNodes') || '链式代理至少需要2个节点',
-      )
+    // 互斥：智能链正在生效时，先弹窗提醒再切换（会清理智能链的合成组）。
+    if (classifyActiveChain() === 'smart') {
+      setConfirmSwitchOpen(true)
       return
     }
 
-    setIsConnecting(true)
-    try {
-      // 第一步：保存链式代理配置
-      const chainProxies = proxyChain.map((node) => node.name)
-      debugLog('Saving chain config:', chainProxies)
-      await updateProxyChainConfigInRuntime(chainProxies)
-      debugLog('Chain configuration saved successfully')
-
-      // 第二步：连接到代理链的最后一个节点
-      const lastNode = proxyChain[proxyChain.length - 1]
-      debugLog(`Connecting to proxy chain, last node: ${lastNode.name}`)
-
-      // 根据模式确定使用的代理组名称
-      if (mode !== 'global' && !selectedGroup) {
-        throw new Error('规则模式下必须选择代理组')
-      }
-
-      const targetGroup = mode === 'global' ? 'GLOBAL' : selectedGroup
-
-      await selectNodeForGroup(targetGroup || 'GLOBAL', lastNode.name)
-      patchChainState({
-        group: targetGroup || 'GLOBAL',
-        exitNode: lastNode.name,
-      })
-
-      // 刷新代理信息以更新连接状态
-      await refreshProxy()
-      // 连接后立即做一次端到端探测，不等 30s 心跳
-      failureCountRef.current = 0
-      setUnhealthyNode(null)
-      runHealthCheckRef.current().catch(() => {})
-      debugLog('Successfully connected to proxy chain')
-    } catch (error) {
-      console.error('Failed to connect to proxy chain:', error)
-      showNotice.error(
-        t('proxies.page.chain.connectFailed') || '连接链式代理失败',
-        error,
-      )
-    } finally {
-      setIsConnecting(false)
-    }
+    await connectManual()
   }, [
     proxyChain,
     isConnected,
@@ -482,7 +529,19 @@ export const ProxyChain = ({
     mode,
     selectedGroup,
     onUpdateChain,
+    connectManual,
   ])
+
+  const handleConfirmSwitchFromSmart = useCallback(async () => {
+    setConfirmSwitchOpen(false)
+    // 清理智能链：移除合成组 __CHAIN_HOP_* 与所有 dialer-proxy，避免残留。
+    try {
+      await updateSmartChainConfigInRuntime(null)
+    } catch {
+      // ignore
+    }
+    await connectManual()
+  }, [connectManual])
 
   const proxyChainRef = useRef(proxyChain)
   const onUpdateChainRef = useRef(onUpdateChain)
@@ -495,6 +554,8 @@ export const ProxyChain = ({
   const runHealthCheck = useCallback(async (): Promise<void> => {
     const currentChain = proxyChainRef.current
     if (currentChain.length < 2) return
+    if (healthCheckInFlightRef.current) return
+    healthCheckInFlightRef.current = true
 
     const chainNames = currentChain.map((n) => n.name)
 
@@ -528,6 +589,8 @@ export const ProxyChain = ({
       }
     } catch (error) {
       console.error('Chain health check failed:', error)
+    } finally {
+      healthCheckInFlightRef.current = false
     }
   }, [latencyTimeout, refreshProxy])
 
@@ -567,6 +630,27 @@ export const ProxyChain = ({
     return grp?.now || null
   }, [chainHealth, mode, selectedGroup, proxies])
 
+  // 链式代理异常（出口漂移 / 节点不可达）时发桌面通知，让用户在后台也能实时感知。
+  // 每种异常态只在进入时通知一次，恢复健康后重置以便下次再报。
+  useEffect(() => {
+    if (chainHealth === 'drifted' || chainHealth === 'unhealthy') {
+      if (notifiedChainHealthRef.current !== chainHealth) {
+        notifiedChainHealthRef.current = chainHealth
+        if (chainHealth === 'drifted') {
+          notifyChainAnomaly('proxies.page.chain.health.driftedHint', {
+            node: driftedTo || '?',
+          })
+        } else {
+          notifyChainAnomaly('proxies.page.chain.health.unhealthyHint', {
+            node: unhealthyNode || '?',
+          })
+        }
+      }
+    } else {
+      notifiedChainHealthRef.current = chainHealth
+    }
+  }, [chainHealth, driftedTo, unhealthyNode])
+
   const healthMeta = useMemo<{
     label: string
     color: 'default' | 'success' | 'warning' | 'error'
@@ -581,8 +665,7 @@ export const ProxyChain = ({
         }
       case 'drifted':
         return {
-          label:
-            t('proxies.page.chain.health.drifted') || '出口节点已被切换',
+          label: t('proxies.page.chain.health.drifted') || '出口节点已被切换',
           color: 'warning',
           icon: <WarningIcon sx={{ fontSize: 16 }} />,
         }
@@ -746,9 +829,7 @@ export const ProxyChain = ({
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="h6">
-            {t('proxies.page.chain.header')}
-          </Typography>
+          <Typography variant="h6">{t('proxies.page.chain.header')}</Typography>
           {proxyChain.length >= 2 && (
             <Chip
               size="small"
@@ -848,6 +929,22 @@ export const ProxyChain = ({
         </Box>
       </Box>
 
+      <ChainPresetBar
+        smart={smart}
+        manualChain={proxyChain}
+        uiMode={uiMode}
+        setUiMode={setUiMode}
+        mode={mode || 'rule'}
+        selectedGroup={selectedGroup}
+        onApplyManual={(names) =>
+          onUpdateChain(buildManualChainNodes(names, proxies?.records))
+        }
+        onConnectManual={(names) => {
+          onUpdateChain(buildManualChainNodes(names, proxies?.records))
+          void connectManual(names)
+        }}
+      />
+
       <ToggleButtonGroup
         value={uiMode}
         exclusive
@@ -864,122 +961,141 @@ export const ProxyChain = ({
       </ToggleButtonGroup>
 
       {uiMode === 'smart' ? (
-        <SmartChainBuilder mode={mode || 'rule'} selectedGroup={selectedGroup} />
+        <SmartChainBuilder smart={smart} />
       ) : (
         <>
-          <ProxyChainPresets
-            currentChain={proxyChain}
-            mode={mode || 'rule'}
-            selectedGroup={selectedGroup}
-            onApplyChain={onUpdateChain}
-          />
-
-      {(chainHealth === 'drifted' || chainHealth === 'unhealthy') && (
-        <Alert
-          severity={chainHealth === 'drifted' ? 'warning' : 'error'}
-          sx={{ mb: 2 }}
-          action={
-            <Button
-              size="small"
-              color="inherit"
-              variant="outlined"
-              onClick={handleRecover}
-              disabled={isConnecting}
+          {(chainHealth === 'drifted' || chainHealth === 'unhealthy') && (
+            <Alert
+              severity={chainHealth === 'drifted' ? 'warning' : 'error'}
+              sx={{ mb: 2 }}
+              action={
+                <Button
+                  size="small"
+                  color="inherit"
+                  variant="outlined"
+                  onClick={handleRecover}
+                  disabled={isConnecting}
+                >
+                  {t('proxies.page.actions.recover') || '恢复连接'}
+                </Button>
+              }
             >
-              {t('proxies.page.actions.recover') || '恢复连接'}
-            </Button>
-          }
-        >
-          {chainHealth === 'drifted'
-            ? t('proxies.page.chain.health.driftedHint', {
-                node: driftedTo || '?',
-              }) ||
-              `出口节点已被切换为 ${driftedTo || '?'}，链式代理可能已失效。`
-            : t('proxies.page.chain.health.unhealthyHint', {
-                node: unhealthyNode || '?',
-              }) ||
-              `节点 ${unhealthyNode || '?'} 不可达，链路异常。`}
-        </Alert>
-      )}
+              {chainHealth === 'drifted'
+                ? t('proxies.page.chain.health.driftedHint', {
+                    node: driftedTo || '?',
+                  }) ||
+                  `出口节点已被切换为 ${driftedTo || '?'}，链式代理可能已失效。`
+                : t('proxies.page.chain.health.unhealthyHint', {
+                    node: unhealthyNode || '?',
+                  }) || `节点 ${unhealthyNode || '?'} 不可达，链路异常。`}
+            </Alert>
+          )}
 
-      <Alert
-        severity={proxyChain.length === 1 ? 'warning' : 'info'}
-        sx={{ mb: 2 }}
-      >
-        {proxyChain.length === 1
-          ? t('proxies.page.chain.minimumNodesHint') ||
-            '链式代理至少需要2个节点，请再添加一个节点。'
-          : t('proxies.page.chain.instruction') ||
-            '按顺序点击节点添加到代理链中'}
-      </Alert>
+          <Alert
+            severity={proxyChain.length === 1 ? 'warning' : 'info'}
+            sx={{ mb: 2 }}
+          >
+            {proxyChain.length === 1
+              ? t('proxies.page.chain.minimumNodesHint') ||
+                '链式代理至少需要2个节点，请再添加一个节点。'
+              : t('proxies.page.chain.instruction') ||
+                '按顺序点击节点添加到代理链中'}
+          </Alert>
 
-      <Box sx={{ flex: 1, overflow: 'auto' }}>
-        {proxyChain.length === 0 ? (
-          <Box
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              justifyContent: 'center',
-              height: '100%',
-              color: theme.palette.text.secondary,
-            }}
-          >
-            <Typography>{t('proxies.page.chain.empty')}</Typography>
-          </Box>
-        ) : (
-          <DndContext
-            sensors={sensors}
-            collisionDetection={closestCenter}
-            onDragEnd={handleDragEnd}
-          >
-            <SortableContext
-              items={proxyChain.map((proxy) => proxy.id)}
-              strategy={verticalListSortingStrategy}
-            >
+          <Box sx={{ flex: 1, overflow: 'auto' }}>
+            {proxyChain.length === 0 ? (
               <Box
                 sx={{
-                  borderRadius: 1,
-                  minHeight: 60,
-                  p: 1,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  height: '100%',
+                  color: theme.palette.text.secondary,
                 }}
               >
-                {proxyChain.map((proxy, index) => (
-                  <Box key={proxy.id}>
-                    <SortableItem
-                      proxy={proxy}
-                      index={index}
-                      isFirst={index === 0}
-                      isLast={
-                        index === proxyChain.length - 1 && proxyChain.length > 1
-                      }
-                      onRemove={handleRemoveProxy}
-                    />
-                    {index < proxyChain.length - 1 && (
-                      <Box
-                        sx={{
-                          display: 'flex',
-                          justifyContent: 'center',
-                          py: 0.25,
-                        }}
-                      >
-                        <ArrowDownward
-                          sx={{
-                            fontSize: 20,
-                            color: theme.palette.primary.main,
-                            opacity: 0.7,
-                          }}
-                        />
-                      </Box>
-                    )}
-                  </Box>
-                ))}
+                <Typography>{t('proxies.page.chain.empty')}</Typography>
               </Box>
-            </SortableContext>
-          </DndContext>
-        )}
+            ) : (
+              <DndContext
+                sensors={sensors}
+                collisionDetection={closestCenter}
+                onDragEnd={handleDragEnd}
+              >
+                <SortableContext
+                  items={proxyChain.map((proxy) => proxy.id)}
+                  strategy={verticalListSortingStrategy}
+                >
+                  <Box
+                    sx={{
+                      borderRadius: 1,
+                      minHeight: 60,
+                      p: 1,
+                    }}
+                  >
+                    {proxyChain.map((proxy, index) => (
+                      <Box key={proxy.id}>
+                        <SortableItem
+                          proxy={proxy}
+                          index={index}
+                          isFirst={index === 0}
+                          isLast={
+                            index === proxyChain.length - 1 &&
+                            proxyChain.length > 1
+                          }
+                          onRemove={handleRemoveProxy}
+                        />
+                        {index < proxyChain.length - 1 && (
+                          <Box
+                            sx={{
+                              display: 'flex',
+                              justifyContent: 'center',
+                              py: 0.25,
+                            }}
+                          >
+                            <ArrowDownward
+                              sx={{
+                                fontSize: 20,
+                                color: theme.palette.primary.main,
+                                opacity: 0.7,
+                              }}
+                            />
+                          </Box>
+                        )}
+                      </Box>
+                    ))}
+                  </Box>
+                </SortableContext>
+              </DndContext>
+            )}
           </Box>
         </>
       )}
+
+      <Dialog
+        open={confirmSwitchOpen}
+        onClose={() => setConfirmSwitchOpen(false)}
+      >
+        <DialogTitle>
+          {t('proxies.page.chain.smart.switchConfirmTitle')}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            {t('proxies.page.chain.smart.switchConfirmFromSmart')}
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmSwitchOpen(false)}>
+            {t('shared.actions.cancel')}
+          </Button>
+          <Button
+            color="warning"
+            variant="contained"
+            onClick={handleConfirmSwitchFromSmart}
+          >
+            {t('proxies.page.chain.smart.switchConfirmOk')}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Paper>
   )
 }

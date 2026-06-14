@@ -999,9 +999,13 @@ interface IChainHop {
   value: string
 }
 
+type IChainPresetType = 'smart' | 'manual'
+
 interface IProxyChainPreset {
   id: string
   name: string
+  // 预设的构建方式：智能链(地区择优/固定出口) 或 手动链(具体节点)。老预设无该字段时按手动处理。
+  type?: IChainPresetType
   nodes: IProxyChainPresetNode[]
   hops?: IChainHop[]
   target_group?: string

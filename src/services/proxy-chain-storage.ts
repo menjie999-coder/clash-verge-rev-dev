@@ -105,3 +105,20 @@ export function patchChainState(
 export function clearChainConnection(): void {
   patchChainState({ items: [], group: null, exitNode: null })
 }
+
+export type ActiveChainMode = 'none' | 'smart' | 'manual'
+
+/**
+ * 判断当前生效的链式代理是哪种模式。
+ *
+ * 智能链会写入 `hops`(≥2 跳),手动链只写 `exitNode`/`group` 而不写 hops。
+ * 二者共享同一份运行时配置(dialer-proxy / 合成组),同时只能有一种生效,
+ * 因此切换前需要据此判断是否要先清理另一种,避免相互覆盖。
+ */
+export function classifyActiveChain(
+  state: ProxyChainState = readChainState(),
+): ActiveChainMode {
+  if ((state.hops?.length ?? 0) >= 2) return 'smart'
+  if (state.exitNode) return 'manual'
+  return 'none'
+}

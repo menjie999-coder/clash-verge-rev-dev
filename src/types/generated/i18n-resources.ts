@@ -468,6 +468,8 @@ export interface TranslationResources {
               noKeyword: string
               savePreview: string
               saveTitle: string
+              saveTitleManual: string
+              saveTitleSmart: string
             }
             empty: string
             feedback: {
@@ -476,6 +478,10 @@ export interface TranslationResources {
               missingNodes: string
               noTargetGroup: string
               saved: string
+            }
+            group: {
+              manual: string
+              smart: string
             }
             matchType: {
               exact: string
@@ -486,11 +492,38 @@ export interface TranslationResources {
           smart: {
             addRegion: string
             advancedTab: string
+            allDownHint: string
+            allDownNotice: string
+            anomalyTitle: string
             connect: string
             currentNode: string
             disconnect: string
+            duplicateNode: string
             duplicateRegion: string
+            hint: {
+              deadHop: string
+              needGroup: string
+              needHops: string
+              ready: string
+            }
+            live: {
+              checking: string
+              idle: string
+              offline: string
+              online: string
+            }
             noHealthyNode: string
+            pinExit: string
+            pinExitNode: string
+            pinExitNodeHint: string
+            pinnedExit: string
+            presetApply: string
+            presetApplyConnect: string
+            presetApplyConnectShort: string
+            presetApplyShort: string
+            presetFilterHop: string
+            presetRegionHop: string
+            refreshHealth: string
             regionBest: string
             regionHealthy: string
             status: {
@@ -498,8 +531,19 @@ export interface TranslationResources {
               down: string
               healthy: string
             }
+            switchConfirmFromManual: string
+            switchConfirmFromSmart: string
+            switchConfirmOk: string
+            switchConfirmTitle: string
             tab: string
             templates: string
+            wizard: {
+              advancedHint: string
+              connect: string
+              exitNode: string
+              frontRegion: string
+              title: string
+            }
           }
         }
         labels: {

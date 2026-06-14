@@ -121,6 +121,16 @@ export async function updateSmartChainConfigInRuntime(
   return invoke<void>('update_smart_chain_config_in_runtime', { payload })
 }
 
+/** 发送系统桌面通知（应用在后台/最小化时也会弹出）。 */
+export async function sendDesktopNotification(title: string, body: string) {
+  return invoke<void>('send_desktop_notification', { title, body })
+}
+
+/** 闪烁任务栏请求用户注意（不依赖系统通知设置；最小化到任务栏时有效）。 */
+export async function flashWindowAttention() {
+  return invoke<void>('flash_window_attention')
+}
+
 export async function patchClashConfig(payload: Partial<IConfigData>) {
   return invoke<void>('patch_clash_config', { payload })
 }

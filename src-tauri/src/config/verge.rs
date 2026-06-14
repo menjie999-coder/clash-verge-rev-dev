@@ -267,7 +267,13 @@ pub struct IVerge {
 pub struct ProxyChainPreset {
     pub id: String,
     pub name: String,
+    /// 预设构建方式："smart"(智能链) 或 "manual"(手动链)；老预设无该字段时按手动处理。
+    #[serde(rename = "type", skip_serializing_if = "Option::is_none")]
+    pub kind: Option<String>,
     pub nodes: Vec<ProxyChainPresetNode>,
+    /// 智能链跳列表（地区/过滤/固定）。需要持久化以便智能链预设跨重启复用。
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub hops: Option<Vec<ProxyChainHop>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub target_group: Option<String>,
     pub created_at: i64,
@@ -280,6 +286,12 @@ pub struct ProxyChainPresetNode {
     pub name: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub keyword: Option<String>,
+}
+
+#[derive(Default, Debug, Clone, Deserialize, Serialize)]
+pub struct ProxyChainHop {
+    pub kind: String,
+    pub value: String,
 }
 
 #[derive(Default, Debug, Clone, Deserialize, Serialize)]
@@ -599,5 +611,48 @@ impl IVerge {
         } else {
             LevelFilter::Info
         }
+    }
+}
+
+#[cfg(test)]
+mod proxy_chain_preset_tests {
+    use super::ProxyChainPreset;
+
+    // 回归：智能链预设的 type 与 hops 必须能完整往返序列化，否则存盘后会退化成手动链。
+    #[test]
+    fn smart_preset_type_and_hops_survive_roundtrip() {
+        let json = r#"{
+            "id": "1",
+            "name": "HK->SOCKS5",
+            "type": "smart",
+            "nodes": [{"name": "", "keyword": "HK"}, {"name": "my-socks5"}],
+            "hops": [{"kind": "region", "value": "HK"}, {"kind": "pinned", "value": "my-socks5"}],
+            "created_at": 1
+        }"#;
+
+        let preset: ProxyChainPreset = serde_json::from_str(json).unwrap();
+        assert_eq!(preset.kind.as_deref(), Some("smart"));
+        assert_eq!(preset.hops.as_ref().map(|h| h.len()), Some(2));
+
+        // 序列化后 JSON 键应为 "type"（而非 "kind"），且 hops 保留。
+        let out = serde_json::to_string(&preset).unwrap();
+        assert!(out.contains("\"type\":\"smart\""), "type lost: {out}");
+        assert!(out.contains("\"region\""), "hops lost: {out}");
+
+        // 再次读回仍是 smart，证明存盘->读取闭环不丢字段。
+        let back: ProxyChainPreset = serde_json::from_str(&out).unwrap();
+        assert_eq!(back.kind.as_deref(), Some("smart"));
+        let hops = back.hops.unwrap();
+        assert_eq!(hops[0].kind, "region");
+        assert_eq!(hops[1].kind, "pinned");
+    }
+
+    // 老预设（无 type/hops）应安全默认为手动链，不报错。
+    #[test]
+    fn legacy_preset_without_type_defaults_gracefully() {
+        let json = r#"{"id":"2","name":"legacy","nodes":[{"name":"node-a"}],"created_at":1}"#;
+        let preset: ProxyChainPreset = serde_json::from_str(json).unwrap();
+        assert!(preset.kind.is_none());
+        assert!(preset.hops.is_none());
     }
 }

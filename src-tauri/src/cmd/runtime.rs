@@ -122,6 +122,29 @@ pub async fn update_proxy_chain_config_in_runtime(proxy_chain_config: Option<ser
     }
 }
 
+/// 发送桌面通知
+///
+/// 用于链式代理异常等需要让用户在应用最小化/后台时也能实时感知的场景。
+/// 标题与正文由前端传入（通常已完成本地化）。
+#[tauri::command]
+pub async fn send_desktop_notification(title: String, body: String) -> CmdResult<()> {
+    crate::utils::notification::notify_text(&title, &body);
+    Ok(())
+}
+
+/// 闪烁任务栏/请求用户注意
+///
+/// 系统通知可能被 Windows 通知设置或专注助手拦截，这里额外用任务栏高亮（橙色闪烁）提醒，
+/// 不依赖通知中心；窗口最小化到任务栏时有效。
+#[tauri::command]
+pub async fn flash_window_attention() -> CmdResult<()> {
+    use tauri::UserAttentionType;
+    if let Some(window) = crate::utils::window_manager::WindowManager::get_main_window() {
+        let _ = window.request_user_attention(Some(UserAttentionType::Critical));
+    }
+    Ok(())
+}
+
 /// 更新运行时智能链式代理配置
 #[tauri::command]
 pub async fn update_smart_chain_config_in_runtime(

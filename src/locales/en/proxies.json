@@ -66,6 +66,10 @@
       "presets": {
         "empty": "No presets — save the current chain to create one",
         "placeholder": "Select a chain preset",
+        "group": {
+          "smart": "Smart chain",
+          "manual": "Manual chain"
+        },
         "actions": {
           "oneClick": "One-click",
           "applyOnly": "Apply to chain only",
@@ -86,6 +90,8 @@
         },
         "dialogs": {
           "saveTitle": "Save as preset",
+          "saveTitleSmart": "Save as smart-chain preset",
+          "saveTitleManual": "Save as manual-chain preset",
           "nameLabel": "Preset name",
           "savePreview": "Will save {{count}} node(s):",
           "keywordPreview": "Fallback keyword: {{keyword}}",
@@ -108,6 +114,44 @@
         "connect": "Connect",
         "disconnect": "Disconnect",
         "duplicateRegion": "Region already in chain",
+        "duplicateNode": "Node already in chain",
+        "pinnedExit": "Pinned exit",
+        "pinExit": "Pin exit",
+        "pinExitNode": "Pin a specific node as exit",
+        "pinExitNodeHint": "e.g. your imported SOCKS5",
+        "allDownHint": "The whole chain is unreachable end-to-end. Check the front nodes or the exit.",
+        "allDownNotice": "Smart chain is fully unreachable — no working path.",
+        "anomalyTitle": "Proxy chain anomaly",
+        "switchConfirmTitle": "Switch proxy chain mode?",
+        "switchConfirmFromManual": "A manual proxy chain is currently active. Switching to the smart chain will clear it. Continue?",
+        "switchConfirmFromSmart": "A smart proxy chain is currently active. Switching to the manual chain will clear it. Continue?",
+        "switchConfirmOk": "Switch",
+        "refreshHealth": "Refresh healthy nodes",
+        "presetApply": "Apply only (fill in, no connect)",
+        "presetApplyShort": "Apply",
+        "presetApplyConnect": "Apply and connect now (one-click)",
+        "presetApplyConnectShort": "Connect",
+        "presetRegionHop": "Region best-pick",
+        "presetFilterHop": "Keyword match",
+        "live": {
+          "online": "Online",
+          "offline": "Offline",
+          "checking": "Checking",
+          "idle": "Not connected"
+        },
+        "wizard": {
+          "title": "Quick setup (front region → exit node → one-click)",
+          "frontRegion": "Front region",
+          "exitNode": "Exit node (e.g. your SOCKS5)",
+          "connect": "Connect",
+          "advancedHint": "Or build hop-by-hop below (advanced)"
+        },
+        "hint": {
+          "needHops": "Need at least 2 hops: add a front region, then pin an exit node",
+          "needGroup": "Select a proxy group above first",
+          "deadHop": "A region has no usable node — refresh or change region",
+          "ready": "Ready — click Connect"
+        },
         "status": {
           "healthy": "All hops connected",
           "degraded": "Some regions have fewer nodes",
